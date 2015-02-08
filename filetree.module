@@ -1,0 +1,123 @@
+<?php
+
+use Drupal\Core\Url;
+
+/**
+ * Implements hook_theme().
+ */
+function filetree_theme() {
+  return array(
+    'filetree' => array(
+      'variables' => array('files' => array(), 'params' => array()),
+    ),
+  );
+}
+
+/**
+ * Implements hook_filter_FILTER_settings().
+ */
+function _filetree_settings($form, &$form_state, $filter, $format, $defaults, $filters) {
+  $filter->settings += $defaults;
+  $elements['folders'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Allowed folder paths'),
+    '#description' => t('Enter one folder per line as paths which are allowed to be rendered as a list of files (relative to your <a href="@url">file system path</a>). The "*" character is a wildcard. Example paths are "*", "some-folder", and "some-folder/*".', array(
+      '@url' => url('admin/config/media/file-system'),
+    )),
+    '#default_value' => $filter->settings['folders'],
+  );
+  return $elements;
+}
+
+/**
+ * Recursively list folders and files in this directory.
+ * Similar to file_scan_directory(), except that we need the hierarchy.
+ * Returns a sorted list which is compatible with theme('item_list') or
+ * theme('filetree'), folders first, then files.
+ */
+function _filetree_list_files($dir, $params) {
+  $list = array();
+
+  if (is_dir($dir) && $handle = opendir($dir)) {
+    $folders = $files = array();
+    while (FALSE !== ($file = readdir($handle))) {
+      if (!in_array($file, array('.', '..', 'CVS')) && $file[0] != '.') {
+        if (is_dir("$dir/$file")) {
+          $folders[$file] = array(
+            '#markup' => $file,
+            'children' => _filetree_list_files("$dir/$file", $params),
+            '#wrapper_attributes' => array('class' => 'folder'),
+          );
+        }
+        else {
+          $filename = "$dir/$file";
+          $pathinfo = pathinfo($file);
+          // Sometimes a file do not have any extension, like README files.
+          if(!isset($pathinfo['extension'])) {
+            $pathinfo['extension'] = '';
+          }
+          $basename = basename($file);
+          if ($params['url'] == '') {
+            $name = $params['extensions'] ? $pathinfo['basename'] : substr($pathinfo['basename'], 0, strrpos($pathinfo['basename'], '.'));
+            $url = $params['absolute'] ? file_create_url($filename) : substr(file_create_url($filename), strlen($GLOBALS['base_url'] . '/'));
+            $url_object = URL::fromUri($url);
+            $files[$file] = array(
+              '#markup' => \Drupal::l($name, $url_object),
+              '#wrapper_attributes' => array('class' => _filetree_icon($pathinfo['extension'])),
+            );
+          }
+        }
+      }
+    }
+    closedir($handle);
+    asort($folders);
+    asort($files);
+    $list += $folders;
+    $list += $files;
+  }
+  return $list;
+}
+
+/**
+ * Determines which icon should be displayed, based on file extension.
+ */
+function _filetree_icon($extension) {
+  $extension = strtolower($extension);
+  $icon = 'file';
+  $map = array(
+    'application' => array('exe'),
+    // 'code' => array(''),
+    'css' => array('css'),
+    'db' => array('sql'),
+    'doc' => array('doc', 'docx'),
+    'film' => array('avi', 'mov'),
+    'flash' => array('flv', 'swf'),
+    'html' => array('htm', 'html'),
+    // 'java' => array(''),
+    // 'linux' => array(''),
+    'music' => array('mp3', 'aac'),
+    'pdf' => array('pdf'),
+    'php' => array('php'),
+    'image' => array('jpg', 'jpeg', 'gif', 'png', 'bmp'),
+    'ppt' => array('ppt'),
+    'psd' => array('psd'),
+    // 'ruby' => array(''),
+    'script' => array('asp'),
+    'txt' => array('txt'),
+    'xls' => array('xls', 'xlsx'),
+    'zip' => array('zip'),
+  );
+  foreach ($map as $key => $values) {
+    foreach ($values as $value) {
+      if ($extension == $value) {
+        $icon = $key;
+      }
+    }
+  }
+  return $icon;
+}
+
+/**
+ * Renders filetree.
+ */
+
