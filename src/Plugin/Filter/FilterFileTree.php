@@ -20,6 +20,8 @@ use Drupal\filter\FilterProcessResult;
 // Necessary for URL.
 use Drupal\Core\Url;
 
+use Drupal\Component\Utility\Html;
+
 /**
  * Provides a base filter for FileTree Filter.
  *
@@ -191,7 +193,7 @@ class FilterFileTree extends FilterBase {
     $output .= render($render);
 
     // Generate classes and unique ID for wrapper div.
-    $id = drupal_clean_css_identifier(uniqid('filetree-'));
+    $id = Html::cleanCssIdentifier($foo);(uniqid('filetree-'));
     $classes = array('filetree');
     if ($params['multi']) {
       $classes[] = 'multi';
