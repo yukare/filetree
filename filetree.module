@@ -1,4 +1,8 @@
 <?php
+/**
+ * @file
+ * Definition of Drupal\geshifilter\Tests\GeshiFilterTest.
+ */
 
 use Drupal\Core\Url;
 
@@ -11,22 +15,6 @@ function filetree_theme() {
       'variables' => array('files' => array(), 'params' => array()),
     ),
   );
-}
-
-/**
- * Implements hook_filter_FILTER_settings().
- */
-function _filetree_settings($form, &$form_state, $filter, $format, $defaults, $filters) {
-  $filter->settings += $defaults;
-  $elements['folders'] = array(
-    '#type' => 'textarea',
-    '#title' => t('Allowed folder paths'),
-    '#description' => t('Enter one folder per line as paths which are allowed to be rendered as a list of files (relative to your <a href="@url">file system path</a>). The "*" character is a wildcard. Example paths are "*", "some-folder", and "some-folder/*".', array(
-      '@url' => url('admin/config/media/file-system'),
-    )),
-    '#default_value' => $filter->settings['folders'],
-  );
-  return $elements;
 }
 
 /**
@@ -53,7 +41,7 @@ function _filetree_list_files($dir, $params) {
           $filename = "$dir/$file";
           $pathinfo = pathinfo($file);
           // Sometimes a file do not have any extension, like README files.
-          if(!isset($pathinfo['extension'])) {
+          if (!isset($pathinfo['extension'])) {
             $pathinfo['extension'] = '';
           }
           $basename = basename($file);
@@ -116,8 +104,3 @@ function _filetree_icon($extension) {
   }
   return $icon;
 }
-
-/**
- * Renders filetree.
- */
-

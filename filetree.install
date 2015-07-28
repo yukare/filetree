@@ -1,8 +1,16 @@
 <?php
+/**
+ * @file
+ * Install hooks for Filetree module.
+ */
 
 /**
  * Implements hook_install().
  */
 function filetree_install() {
-  //drupal_set_message(t('File Tree has been installed. Before this does anything, File Tree needs to be added to one or more text formats. Visit the <a href="!url">text format administration</a> to set up this filter.', array('!url' => url('admin/config/content/formats'))), 'warning');
+  // drupal_set_message(t('File Tree has been installed. Before this does
+  // anything, File Tree needs to be added to one or more text formats.
+  // Visit the <a href="!url">text format administration</a> to set up this
+  // filter.', array('!url' => url('admin/config/content/formats'))),
+  // 'warning');
 }

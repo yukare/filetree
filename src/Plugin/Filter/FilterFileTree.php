@@ -22,6 +22,8 @@ use Drupal\Core\Url;
 
 use Drupal\Component\Utility\Html;
 
+use Drupal\filetree\FileTree;
+
 /**
  * Provides a base filter for FileTree Filter.
  *
@@ -32,21 +34,36 @@ use Drupal\Component\Utility\Html;
  *     an inline list of files."),
  *   type = \Drupal\filter\Plugin\FilterInterface::TYPE_TRANSFORM_IRREVERSIBLE,
  *   settings = {
- *     "allowed_html" = "<a> <em> <strong> <cite> <blockquote> <code> <ul> <ol> <li> <dl> <dt> <dd> <h4> <h5> <h6>",
- *     "filter_html_help" = TRUE,
- *     "filter_html_nofollow" = FALSE
+ *     "folders" = "",
  *   },
  *   weight = 0
  * )
  */
 class FilterFileTree extends FilterBase {
+  /**
+   * Object with configuration for filetree.
+   *
+   * @var object
+   */
+  protected $config;
 
   /**
-   * Object with configuration.
+   * Object with configuration for filetree, where we need editable..
    *
-   * @var \Drupal\core\config\config
+   * @var object
    */
-  private $config;
+  protected $configEditable;
+
+  /**
+   * {@inheritdoc}
+   */
+  public function __construct(array $configuration, $plugin_id, array $plugin_definition) {
+    parent::__construct($configuration, $plugin_id, $plugin_definition);
+
+    $this->config = \Drupal::config('filetree.settings');
+    $this->configEditable = \Drupal::configFactory()
+      ->getEditable('filetree.settings');
+  }
 
   /**
    * Performs the filter processing.
@@ -79,6 +96,7 @@ class FilterFileTree extends FilterBase {
       'url' => '',
       'animation' => TRUE,
     );
+    $matches2 = array();
     // The token might be present multiple times; loop through each instance.
     foreach ($matches[1] as $key => $passed_params) {
 
@@ -104,7 +122,8 @@ class FilterFileTree extends FilterBase {
       // Make sure that "dir" was provided,
       if (!$params[$key]['dir']
         // ...it's an allowed path for this input format,
-        //or !drupal_match_path($params[$key]['dir'], $filter->settings['folders'])
+        or !\Drupal::service('path.matcher')
+          ->matchPath($params[$key]['dir'], $this->settings['folders'])
         // ...the URI builds okay,
         or !$params[$key]['uri'] = file_build_uri($params[$key]['dir'])
         // ...and it's within the files directory.
@@ -112,15 +131,17 @@ class FilterFileTree extends FilterBase {
       ) {
         continue;
       }
-
       // Render tree.
+      // $filetree = new FileTree();
       $files = _filetree_list_files($params[$key]['uri'], $params[$key]);
+      // $files = $filetree->listFiles($params[$key]['uri'], $params[$key]);
       $render = array(
         '#theme' => 'filetree',
         '#files' => $files,
         '#params' => $params,
       );
       $rendered = $this->render($files, $params[0]);
+      // $rendered = $filetree->render($files, $params[0]);
       // Replace token with rendered tree.
       $text = str_replace($matches[0], $rendered, $text);
     }
@@ -128,7 +149,7 @@ class FilterFileTree extends FilterBase {
     // Create the object with result.
     $result = new FilterProcessResult($text);
     // Associate assets to be attached.
-    $result->setAssets(array(
+    $result->setAttachments(array(
       'library' => array(
         'filetree/filetree',
       ),
@@ -154,6 +175,12 @@ class FilterFileTree extends FilterBase {
     return $output;
   }
 
+  /**
+   * Render.
+   * @param $files
+   * @param $params
+   * @return string
+   */
   protected function render($files, $params) {
     $output = '';
 
@@ -172,14 +199,14 @@ class FilterFileTree extends FilterBase {
           '<a href="#" class="expand">' . t('expand all') . '</a>',
           '<a href="#" class="collapse">' . t('collapse all') . '</a>',
         );
-        $output .= theme('item_list', array(
+        $render = array(
+          '#theme' => 'item_list',
           'items' => $controls,
-          'title' => NULL,
-          'type' => 'ul',
-          'attributes' => array('class' => 'controls'),
+          '#type' => 'ul',
           '#attributes' => array('class' => 'controls'),
           '#wrapper_attributes' => array('class' => 'controls'),
-        ));
+        );
+        $output .= render($render);
       }
     }
 
@@ -193,7 +220,7 @@ class FilterFileTree extends FilterBase {
     $output .= render($render);
 
     // Generate classes and unique ID for wrapper div.
-    $id = Html::cleanCssIdentifier($foo);(uniqid('filetree-'));
+    $id = Html::cleanCssIdentifier(uniqid('filetree-'));
     $classes = array('filetree');
     if ($params['multi']) {
       $classes[] = 'multi';
@@ -205,4 +232,31 @@ class FilterFileTree extends FilterBase {
     return '<div id="' . $id . '" class="' . implode(' ', $classes) . '">' . $output . '</div>';
   }
 
+  /**
+   * Create the settings form for the filter.
+   *
+   * @param array $form
+   *   A minimally prepopulated form array.
+   * @param FormStateInterface $form_state
+   *   The state of the (entire) configuration form.
+   *
+   * @return array
+   *   The $form array with additional form elements for the settings of
+   *   this filter. The submitted form values should match $this->settings.
+   *
+   * @todo Add validation of submited form values, it already exists for
+   *       drupal 7, must update it only.
+   */
+  public function settingsForm(array $form, FormStateInterface $form_state) {
+    $elements['folders'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Allowed folder paths'),
+      '#description' => t('Enter one folder per line as paths which are allowed to be rendered as a list of files (relative to your <a href="@url">file system path</a>). The "*" character is a wildcard. Example paths are "*", "some-folder", and "some-folder/*".', array(
+        '@url' => URL::fromUri('base:admin/config/media/file-system')
+          ->toString(),
+      )),
+      '#default_value' => $this->settings['folders'],
+    );
+    return $elements;
+  }
 }
